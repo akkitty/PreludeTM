@@ -105,6 +105,21 @@
     font-size: 0.75rem;
     margin: 8px 2px 0;
   }
+  #shareBtn {
+    display: block;
+    width: 100%;
+    margin-top: 18px;
+    background: #1c2438;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 13px 18px;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  #shareBtn:active { background: #262f48; }
+  #shareBtn:disabled { opacity: 0.5; }
+  #shareBtn[hidden] { display: none; }
   .results {
     margin-top: 24px;
     display: flex;
@@ -197,6 +212,7 @@
 
   <div class="results" id="results"></div>
   <p class="empty" id="emptyMsg">Set your player count and tap Roll.</p>
+  <button id="shareBtn" type="button" hidden>Download / share draft as image</button>
 
   <footer>
     35 Prelude cards, dealt without replacement. Card images via
@@ -213,6 +229,11 @@
 
   const CARDS_PER_PLAYER = 4;
   const MAX_PLAYERS = Math.floor(CARDS.length / CARDS_PER_PLAYER);
+  const ASSET_VERSION = 'v2';
+
+  function assetUrl(file) {
+    return file + '?v=' + ASSET_VERSION;
+  }
 
   const playerCountEl = document.getElementById('playerCount');
   const decBtn = document.getElementById('decBtn');
@@ -223,8 +244,10 @@
   const hintEl = document.getElementById('hint');
   const zoomDialog = document.getElementById('zoom');
   const zoomImg = document.getElementById('zoomImg');
+  const shareBtn = document.getElementById('shareBtn');
 
   let players = Math.min(4, MAX_PLAYERS);
+  let lastHands = [];
 
   function renderControls() {
     playerCountEl.textContent = players;
@@ -255,9 +278,11 @@
     const deck = shuffle(CARDS);
     resultsEl.innerHTML = '';
     emptyMsg.style.display = 'none';
+    lastHands = [];
 
     for (let p = 0; p < players; p++) {
       const hand = deck.slice(p * CARDS_PER_PLAYER, (p + 1) * CARDS_PER_PLAYER);
+      lastHands.push(hand);
 
       const section = document.createElement('section');
       section.className = 'player';
@@ -276,7 +301,7 @@
         btn.addEventListener('click', () => openZoom(card));
 
         const img = document.createElement('img');
-        img.src = card.file;
+        img.src = assetUrl(card.file);
         img.alt = card.name;
         img.loading = 'lazy';
 
@@ -287,10 +312,12 @@
       section.appendChild(cardsDiv);
       resultsEl.appendChild(section);
     }
+
+    shareBtn.hidden = false;
   }
 
   function openZoom(card) {
-    zoomImg.src = card.file;
+    zoomImg.src = assetUrl(card.file);
     zoomImg.alt = card.name;
     zoomDialog.showModal();
   }
@@ -300,6 +327,124 @@
   });
 
   rollBtn.addEventListener('click', roll);
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Failed to load ' + src));
+      img.src = src;
+    });
+  }
+
+  function drawRoundedImage(ctx, img, x, y, w, h, r) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(img, x, y, w, h);
+    ctx.restore();
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  }
+
+  async function buildDraftImage() {
+    const cardImgs = await Promise.all(
+      lastHands.map(hand => Promise.all(hand.map(c => loadImage(assetUrl(c.file)))))
+    );
+
+    const cols = 2;
+    const rows = Math.ceil(CARDS_PER_PLAYER / cols);
+    const cardW = 340;
+    const aspect = cardImgs[0][0].naturalWidth / cardImgs[0][0].naturalHeight;
+    const cardH = Math.round(cardW / aspect);
+    const gap = 14;
+    const pad = 28;
+    const playerLabelH = 32;
+    const playerBlockW = cardW * cols + gap * (cols - 1);
+    const playerBlockH = playerLabelH + cardH * rows + gap * (rows - 1);
+    const playerGap = 30;
+    const headerH = 80;
+
+    const canvasW = pad * 2 + playerBlockW;
+    const canvasH = headerH + pad + lastHands.length * playerBlockH + (lastHands.length - 1) * playerGap + pad;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvasW, canvasH);
+
+    ctx.fillStyle = '#0b0f1a';
+    ctx.font = 'bold 30px -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('PreludeTM Draft', pad, 42);
+
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '16px -apple-system, "Segoe UI", Roboto, sans-serif';
+    const dateStr = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    ctx.fillText(lastHands.length + ' player' + (lastHands.length === 1 ? '' : 's') + ' · ' + dateStr, pad, 66);
+
+    let y = headerH + pad;
+    for (let p = 0; p < lastHands.length; p++) {
+      ctx.fillStyle = '#374151';
+      ctx.font = 'bold 15px -apple-system, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('PLAYER ' + (p + 1), pad, y + 14);
+
+      const gridY = y + playerLabelH;
+      lastHands[p].forEach((card, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = pad + col * (cardW + gap);
+        const cy = gridY + row * (cardH + gap);
+        drawRoundedImage(ctx, cardImgs[p][i], x, cy, cardW, cardH, 10);
+      });
+
+      y += playerBlockH + playerGap;
+    }
+
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+  }
+
+  shareBtn.addEventListener('click', async () => {
+    if (!lastHands.length) return;
+    const prevLabel = shareBtn.textContent;
+    shareBtn.disabled = true;
+    shareBtn.textContent = 'Preparing image…';
+
+    try {
+      const blob = await buildDraftImage();
+      const filename = 'preludetm-draft-' + lastHands.length + 'p-' + Date.now() + '.jpg';
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'PreludeTM Draft' });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        alert('Could not create image: ' + err.message);
+      }
+    } finally {
+      shareBtn.disabled = false;
+      shareBtn.textContent = prevLabel;
+    }
+  });
 
   renderControls();
 </script>
