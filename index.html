@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1a">
+<title>PreludeTM</title>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --panel: #141a2b;
+    --panel-border: #232b42;
+    --text: #eef1f7;
+    --muted: #8b93a7;
+    --accent: #c1440e;
+    --accent-hover: #d9531a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin: 0 0 2px;
+    letter-spacing: 0.02em;
+  }
+  h1 span { color: var(--accent); }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0 0 20px;
+  }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .field label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .stepper button {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--panel-border);
+    background: #1c2438;
+    color: var(--text);
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+  .stepper button:active { background: #262f48; }
+  .stepper output {
+    min-width: 28px;
+    text-align: center;
+    font-size: 1.3rem;
+    font-variant-numeric: tabular-nums;
+  }
+  #rollBtn {
+    margin-left: auto;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 22px;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  #rollBtn:active { background: var(--accent-hover); }
+  #rollBtn:disabled { opacity: 0.4; }
+  .hint {
+    color: var(--muted);
+    font-size: 0.75rem;
+    margin: 8px 2px 0;
+  }
+  .results {
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .player {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .player h2 {
+    font-size: 1rem;
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .card-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    display: block;
+    width: 100%;
+    cursor: pointer;
+  }
+  .card-btn img {
+    width: 100%;
+    display: block;
+    border-radius: 8px;
+    border: 1px solid var(--panel-border);
+  }
+  .empty {
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 40px;
+    line-height: 1.5;
+  }
+  dialog#zoom {
+    border: none;
+    background: transparent;
+    padding: 0;
+    max-width: 92vw;
+    max-height: 92vh;
+  }
+  dialog#zoom img {
+    max-width: 92vw;
+    max-height: 92vh;
+    border-radius: 10px;
+    display: block;
+  }
+  dialog#zoom::backdrop {
+    background: rgba(0,0,0,0.75);
+  }
+  footer {
+    margin-top: 40px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    text-align: center;
+    line-height: 1.6;
+  }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Prelude<span>TM</span></h1>
+  <p class="subtitle">Deal a Terraforming Mars Prelude draft — 4 cards per player, no repeats.</p>
+
+  <div class="controls">
+    <div class="field">
+      <label for="playerCount">Players</label>
+      <div class="stepper">
+        <button type="button" id="decBtn" aria-label="Fewer players">&minus;</button>
+        <output id="playerCount">3</output>
+        <button type="button" id="incBtn" aria-label="More players">&plus;</button>
+      </div>
+    </div>
+    <button id="rollBtn" type="button">Roll</button>
+  </div>
+  <p class="hint" id="hint"></p>
+
+  <div class="results" id="results"></div>
+  <p class="empty" id="emptyMsg">Set your player count and tap Roll.</p>
+
+  <footer>
+    35 Prelude cards, dealt without replacement. Card images via
+    <a href="https://github.com/hadronikle/Complete-Terraforming-Mars-Card-Database" target="_blank" rel="noopener">hadronikle/Complete-Terraforming-Mars-Card-Database</a>.
+  </footer>
+</div>
+
+<dialog id="zoom">
+  <img id="zoomImg" src="" alt="">
+</dialog>
+
+<script>
+  const CARDS = [{"num":"P01","name":"Allied Bank","file":"assets/cards/P01-allied-bank.jpg"},{"num":"P02","name":"Aquifer Turbines","file":"assets/cards/P02-aquifer-turbines.jpg"},{"num":"P03","name":"Biofuels","file":"assets/cards/P03-biofuels.jpg"},{"num":"P04","name":"Biolab","file":"assets/cards/P04-biolab.jpg"},{"num":"P05","name":"Biosphere Support","file":"assets/cards/P05-biosphere-support.jpg"},{"num":"P06","name":"Business Empire","file":"assets/cards/P06-business-empire.jpg"},{"num":"P07","name":"Dome Farming","file":"assets/cards/P07-dome-farming.jpg"},{"num":"P08","name":"Donation","file":"assets/cards/P08-donation.jpg"},{"num":"P09","name":"Early Settlement","file":"assets/cards/P09-early-settlement.jpg"},{"num":"P10","name":"Ecology Experts","file":"assets/cards/P10-ecology-experts.jpg"},{"num":"P11","name":"Eccentric Sponsor","file":"assets/cards/P11-eccentric-sponsor.jpg"},{"num":"P12","name":"Experimental Forest","file":"assets/cards/P12-experimental-forest.jpg"},{"num":"P13","name":"Galilean Mining","file":"assets/cards/P13-galilean-mining.jpg"},{"num":"P14","name":"Great Aquifer","file":"assets/cards/P14-great-aquifer.jpg"},{"num":"P15","name":"Huge Asteroid","file":"assets/cards/P15-huge-asteroid.jpg"},{"num":"P16","name":"Io Research Outpost","file":"assets/cards/P16-io-research-outpost.jpg"},{"num":"P17","name":"Loan","file":"assets/cards/P17-loan.jpg"},{"num":"P18","name":"Martian Industries","file":"assets/cards/P18-martian-industries.jpg"},{"num":"P19","name":"Metal-Rich Asteroid","file":"assets/cards/P19-metal-rich-asteroid.jpg"},{"num":"P20","name":"Metals Company","file":"assets/cards/P20-metals-company.jpg"},{"num":"P21","name":"Mining Operations","file":"assets/cards/P21-mining-operations.jpg"},{"num":"P22","name":"Mohole","file":"assets/cards/P22-mohole.jpg"},{"num":"P23","name":"Mohole Excavation","file":"assets/cards/P23-mohole-excavation.jpg"},{"num":"P24","name":"Nitrogen Shipment","file":"assets/cards/P24-nitrogen-shipment.jpg"},{"num":"P25","name":"Orbital Construction Yard","file":"assets/cards/P25-orbital-construction-yard.jpg"},{"num":"P26","name":"Polar Industries","file":"assets/cards/P26-polar-industries.jpg"},{"num":"P27","name":"Power Generation","file":"assets/cards/P27-power-generation.jpg"},{"num":"P28","name":"Research Network","file":"assets/cards/P28-research-network.jpg"},{"num":"P29","name":"Self-Sufficient Settlement","file":"assets/cards/P29-self-sufficient-settlement.jpg"},{"num":"P30","name":"Smelting Plant","file":"assets/cards/P30-smelting-plant.jpg"},{"num":"P31","name":"Society Support","file":"assets/cards/P31-society-support.jpg"},{"num":"P32","name":"Supplier","file":"assets/cards/P32-supplier.jpg"},{"num":"P33","name":"Supply Drop","file":"assets/cards/P33-supply-drop.jpg"},{"num":"P34","name":"UNMI Contractor","file":"assets/cards/P34-unmi-contractor.jpg"},{"num":"P35","name":"Acquired Space Agency","file":"assets/cards/P35-acquired-space-agency.jpg"}];
+
+  const CARDS_PER_PLAYER = 4;
+  const MAX_PLAYERS = Math.floor(CARDS.length / CARDS_PER_PLAYER);
+
+  const playerCountEl = document.getElementById('playerCount');
+  const decBtn = document.getElementById('decBtn');
+  const incBtn = document.getElementById('incBtn');
+  const rollBtn = document.getElementById('rollBtn');
+  const resultsEl = document.getElementById('results');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const hintEl = document.getElementById('hint');
+  const zoomDialog = document.getElementById('zoom');
+  const zoomImg = document.getElementById('zoomImg');
+
+  let players = Math.min(4, MAX_PLAYERS);
+
+  function renderControls() {
+    playerCountEl.textContent = players;
+    decBtn.disabled = players <= 1;
+    incBtn.disabled = players >= MAX_PLAYERS;
+    hintEl.textContent = players + ' × ' + CARDS_PER_PLAYER + ' = ' + (players * CARDS_PER_PLAYER) + ' of ' + CARDS.length + ' cards dealt';
+  }
+
+  decBtn.addEventListener('click', () => {
+    players = Math.max(1, players - 1);
+    renderControls();
+  });
+  incBtn.addEventListener('click', () => {
+    players = Math.min(MAX_PLAYERS, players + 1);
+    renderControls();
+  });
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function roll() {
+    const deck = shuffle(CARDS);
+    resultsEl.innerHTML = '';
+    emptyMsg.style.display = 'none';
+
+    for (let p = 0; p < players; p++) {
+      const hand = deck.slice(p * CARDS_PER_PLAYER, (p + 1) * CARDS_PER_PLAYER);
+
+      const section = document.createElement('section');
+      section.className = 'player';
+
+      const h2 = document.createElement('h2');
+      h2.textContent = 'Player ' + (p + 1);
+      section.appendChild(h2);
+
+      const cardsDiv = document.createElement('div');
+      cardsDiv.className = 'cards';
+
+      hand.forEach(card => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'card-btn';
+        btn.addEventListener('click', () => openZoom(card));
+
+        const img = document.createElement('img');
+        img.src = card.file;
+        img.alt = card.name;
+        img.loading = 'lazy';
+
+        btn.appendChild(img);
+        cardsDiv.appendChild(btn);
+      });
+
+      section.appendChild(cardsDiv);
+      resultsEl.appendChild(section);
+    }
+  }
+
+  function openZoom(card) {
+    zoomImg.src = card.file;
+    zoomImg.alt = card.name;
+    zoomDialog.showModal();
+  }
+
+  zoomDialog.addEventListener('click', (e) => {
+    if (e.target === zoomDialog) zoomDialog.close();
+  });
+
+  rollBtn.addEventListener('click', roll);
+
+  renderControls();
+</script>
+</body>
+</html>
