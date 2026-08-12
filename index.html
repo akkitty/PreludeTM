@@ -212,7 +212,7 @@
 
   <div class="results" id="results"></div>
   <p class="empty" id="emptyMsg">Set your player count and tap Roll.</p>
-  <button id="shareBtn" type="button" hidden>Download / share draft as image</button>
+  <button id="shareBtn" type="button" hidden>Share each hand as an image</button>
 
   <footer>
     35 Prelude cards, dealt without replacement. Card images via
@@ -228,8 +228,15 @@
   const CARDS = [{"num":"P01","name":"Allied Bank","file":"assets/cards/P01-allied-bank.jpg"},{"num":"P02","name":"Aquifer Turbines","file":"assets/cards/P02-aquifer-turbines.jpg"},{"num":"P03","name":"Biofuels","file":"assets/cards/P03-biofuels.jpg"},{"num":"P04","name":"Biolab","file":"assets/cards/P04-biolab.jpg"},{"num":"P05","name":"Biosphere Support","file":"assets/cards/P05-biosphere-support.jpg"},{"num":"P06","name":"Business Empire","file":"assets/cards/P06-business-empire.jpg"},{"num":"P07","name":"Dome Farming","file":"assets/cards/P07-dome-farming.jpg"},{"num":"P08","name":"Donation","file":"assets/cards/P08-donation.jpg"},{"num":"P09","name":"Early Settlement","file":"assets/cards/P09-early-settlement.jpg"},{"num":"P10","name":"Ecology Experts","file":"assets/cards/P10-ecology-experts.jpg"},{"num":"P11","name":"Eccentric Sponsor","file":"assets/cards/P11-eccentric-sponsor.jpg"},{"num":"P12","name":"Experimental Forest","file":"assets/cards/P12-experimental-forest.jpg"},{"num":"P13","name":"Galilean Mining","file":"assets/cards/P13-galilean-mining.jpg"},{"num":"P14","name":"Great Aquifer","file":"assets/cards/P14-great-aquifer.jpg"},{"num":"P15","name":"Huge Asteroid","file":"assets/cards/P15-huge-asteroid.jpg"},{"num":"P16","name":"Io Research Outpost","file":"assets/cards/P16-io-research-outpost.jpg"},{"num":"P17","name":"Loan","file":"assets/cards/P17-loan.jpg"},{"num":"P18","name":"Martian Industries","file":"assets/cards/P18-martian-industries.jpg"},{"num":"P19","name":"Metal-Rich Asteroid","file":"assets/cards/P19-metal-rich-asteroid.jpg"},{"num":"P20","name":"Metals Company","file":"assets/cards/P20-metals-company.jpg"},{"num":"P21","name":"Mining Operations","file":"assets/cards/P21-mining-operations.jpg"},{"num":"P22","name":"Mohole","file":"assets/cards/P22-mohole.jpg"},{"num":"P23","name":"Mohole Excavation","file":"assets/cards/P23-mohole-excavation.jpg"},{"num":"P24","name":"Nitrogen Shipment","file":"assets/cards/P24-nitrogen-shipment.jpg"},{"num":"P25","name":"Orbital Construction Yard","file":"assets/cards/P25-orbital-construction-yard.jpg"},{"num":"P26","name":"Polar Industries","file":"assets/cards/P26-polar-industries.jpg"},{"num":"P27","name":"Power Generation","file":"assets/cards/P27-power-generation.jpg"},{"num":"P28","name":"Research Network","file":"assets/cards/P28-research-network.jpg"},{"num":"P29","name":"Self-Sufficient Settlement","file":"assets/cards/P29-self-sufficient-settlement.jpg"},{"num":"P30","name":"Smelting Plant","file":"assets/cards/P30-smelting-plant.jpg"},{"num":"P31","name":"Society Support","file":"assets/cards/P31-society-support.jpg"},{"num":"P32","name":"Supplier","file":"assets/cards/P32-supplier.jpg"},{"num":"P33","name":"Supply Drop","file":"assets/cards/P33-supply-drop.jpg"},{"num":"P34","name":"UNMI Contractor","file":"assets/cards/P34-unmi-contractor.jpg"},{"num":"P35","name":"Acquired Space Agency","file":"assets/cards/P35-acquired-space-agency.jpg"}];
 
   const CARDS_PER_PLAYER = 4;
-  const MAX_PLAYERS = Math.floor(CARDS.length / CARDS_PER_PLAYER);
+  const MAX_PLAYERS = Math.min(5, Math.floor(CARDS.length / CARDS_PER_PLAYER));
   const ASSET_VERSION = 'v2';
+  const PLAYER_COLORS = [
+    { bg: '#fdeceb', accent: '#b91c1c' },
+    { bg: '#e8f1fd', accent: '#1d4ed8' },
+    { bg: '#e9f7ee', accent: '#15803d' },
+    { bg: '#fdf6e3', accent: '#b45309' },
+    { bg: '#f3ecfb', accent: '#6d28d9' },
+  ];
 
   function assetUrl(file) {
     return file + '?v=' + ASSET_VERSION;
@@ -354,91 +361,94 @@
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
   }
 
-  async function buildDraftImage() {
-    const cardImgs = await Promise.all(
-      lastHands.map(hand => Promise.all(hand.map(c => loadImage(assetUrl(c.file)))))
-    );
+  async function buildPlayerImage(index) {
+    const hand = lastHands[index];
+    const cardImgs = await Promise.all(hand.map(c => loadImage(assetUrl(c.file))));
+    const colors = PLAYER_COLORS[index % PLAYER_COLORS.length];
 
     const cols = 2;
     const rows = Math.ceil(CARDS_PER_PLAYER / cols);
     const cardW = 640;
-    const aspect = cardImgs[0][0].naturalWidth / cardImgs[0][0].naturalHeight;
+    const aspect = cardImgs[0].naturalWidth / cardImgs[0].naturalHeight;
     const cardH = Math.round(cardW / aspect);
     const gap = 20;
     const pad = 40;
-    const playerLabelH = 46;
-    const playerBlockW = cardW * cols + gap * (cols - 1);
-    const playerBlockH = playerLabelH + cardH * rows + gap * (rows - 1);
-    const playerGap = 44;
-    const headerH = 120;
+    const headerH = 130;
 
-    const canvasW = pad * 2 + playerBlockW;
-    const canvasH = headerH + pad + lastHands.length * playerBlockH + (lastHands.length - 1) * playerGap + pad;
+    const gridW = cardW * cols + gap * (cols - 1);
+    const gridH = cardH * rows + gap * (rows - 1);
+
+    const canvasW = pad * 2 + gridW;
+    const canvasH = headerH + gridH + pad;
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasW;
     canvas.height = canvasH;
     const ctx = canvas.getContext('2d');
 
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = colors.bg;
     ctx.fillRect(0, 0, canvasW, canvasH);
 
-    ctx.fillStyle = '#0b0f1a';
-    ctx.font = 'bold 54px -apple-system, "Segoe UI", Roboto, sans-serif';
-    ctx.fillText('PreludeTM Draft', pad, 76);
+    ctx.fillStyle = colors.accent;
+    ctx.font = 'bold 28px -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('PreludeTM Draft', pad, 50);
 
-    ctx.fillStyle = '#6b7280';
-    ctx.font = '28px -apple-system, "Segoe UI", Roboto, sans-serif';
     const dateStr = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-    ctx.fillText(lastHands.length + ' player' + (lastHands.length === 1 ? '' : 's') + ' · ' + dateStr, pad, 112);
+    ctx.textAlign = 'right';
+    ctx.font = '22px -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(dateStr, canvasW - pad, 50);
+    ctx.textAlign = 'left';
 
-    let y = headerH + pad;
-    for (let p = 0; p < lastHands.length; p++) {
-      ctx.fillStyle = '#374151';
-      ctx.font = 'bold 26px -apple-system, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText('PLAYER ' + (p + 1), pad, y + 24);
+    ctx.fillStyle = '#1f2430';
+    ctx.font = 'bold 56px -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('PLAYER ' + (index + 1), pad, 108);
 
-      const gridY = y + playerLabelH;
-      lastHands[p].forEach((card, i) => {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        const x = pad + col * (cardW + gap);
-        const cy = gridY + row * (cardH + gap);
-        drawRoundedImage(ctx, cardImgs[p][i], x, cy, cardW, cardH, 16);
-      });
-
-      y += playerBlockH + playerGap;
-    }
+    const gridY = headerH;
+    cardImgs.forEach((img, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = pad + col * (cardW + gap);
+      const y = gridY + row * (cardH + gap);
+      drawRoundedImage(ctx, img, x, y, cardW, cardH, 16);
+    });
 
     return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+  }
+
+  function buildAllPlayerImages() {
+    return Promise.all(lastHands.map((_, i) => buildPlayerImage(i)));
   }
 
   shareBtn.addEventListener('click', async () => {
     if (!lastHands.length) return;
     const prevLabel = shareBtn.textContent;
     shareBtn.disabled = true;
-    shareBtn.textContent = 'Preparing image…';
+    shareBtn.textContent = 'Preparing images…';
 
     try {
-      const blob = await buildDraftImage();
-      const filename = 'preludetm-draft-' + lastHands.length + 'p-' + Date.now() + '.jpg';
-      const file = new File([blob], filename, { type: 'image/jpeg' });
+      const blobs = await buildAllPlayerImages();
+      const stamp = Date.now();
+      const files = blobs.map((blob, i) => new File([blob], 'preludetm-player' + (i + 1) + '-' + stamp + '.jpg', { type: 'image/jpeg' }));
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'PreludeTM Draft' });
+      if (navigator.canShare && navigator.canShare({ files })) {
+        await navigator.share({ files, title: 'PreludeTM Draft' });
       } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        files.forEach((file, i) => {
+          setTimeout(() => {
+            const url = URL.createObjectURL(file);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+          }, i * 300);
+        });
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
-        alert('Could not create image: ' + err.message);
+        alert('Could not create images: ' + err.message);
       }
     } finally {
       shareBtn.disabled = false;
